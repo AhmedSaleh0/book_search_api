@@ -3,3 +3,8 @@ controllers:
         path: ../src/Controller/
         namespace: App\Controller
     type: attribute
+
+book_search:
+  path: /book/search
+  controller: App\Controller\BookSearchController::search
+  methods: GET

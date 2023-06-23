@@ -20,5 +20,11 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    # add more service definitions when explicit configuration is needed
-    # please note that last definitions always *replace* previous ones
+    App\Service\BookApiService:
+        arguments:
+            $httpClient: '@http_client'
+            $apiUrl: '%env(API_URL)%'
+    
+    App\Controller\BookSearchController:
+        arguments:
+            $bookApiService: '@App\Service\BookApiService'
