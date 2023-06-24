@@ -1,84 +1,101 @@
 <?php
 
-use App\Controller\BookSearchController;
-use App\Exception\ApiCommunicationException;
-use App\Service\BookApiService;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
-use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\ParameterBag;
+namespace App\Tests\Controller;
 
-class BookSearchControllerTest extends TestCase
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Dotenv\Dotenv;
+use Symfony\Component\HttpFoundation\Response;
+
+class BookSearchControllerTest extends WebTestCase
 {
-    private $bookApiService;
-    private $parameterBag;
-    private $bookSearchController;
-
     protected function setUp(): void
     {
-        $this->bookApiService = $this->createMock(BookApiService::class);
-        $this->parameterBag = $this->createMock(ParameterBagInterface::class);
-        $this->bookSearchController = new BookSearchController($this->bookApiService, $this->parameterBag);
+        parent::setUp();
+
+        // Load environment variables
+        $dotenv = new Dotenv();
+        $dotenv->loadEnv('.env');
     }
 
-    public function testSearch(): void
+    public function testSearchByPrice(): void
     {
-        $booksData = [
-            // Mocked books data
-        ];
+        $client = static::createClient();
 
-        // Mock the BookApiService response
-        $this->bookApiService->expects($this->once())
-            ->method('fetchBooksData')
-            ->willReturn($booksData);
+        // Send a GET request to '/book/search' with the 'price' query parameter set to '40'
+        $client->request('GET', '/book/search', ['price' => '40']);
+        $response = $client->getResponse();
 
-        // Mock the parameter bag to return the mocked API URL
-        $this->parameterBag->expects($this->once())
-            ->method('get')
-            ->with('api_url')
-            ->willReturn('mocked_api_url');
+        // Assert that the response status code is HTTP_OK (200)
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertJson($response->getContent());
 
-        // Mock the request object
-        $request = $this->createMock(Request::class);
-        $request->query = new ParameterBag([
-            'price' => 40,
-        ]);
+        // Decode the response content to an array
+        $data = json_decode($response->getContent(), true);
 
-        // Set up the expected filtered books
-        $expectedFilteredBooks = [
-            // Expected filtered books based on the provided query parameters
-        ];
+        // Assert that the response content is an array
+        $this->assertIsArray($data);
 
-        // Call the search method
-        $response = $this->bookSearchController->search($request);
-
-        // Assert that the response is a JSON response
-        $this->assertInstanceOf(JsonResponse::class, $response);
-
-        // Assert the response content matches the expected filtered books
-        $this->assertEquals($expectedFilteredBooks, json_decode($response->getContent(), true));
+        // Assert that the response content array has a count of 17
+        $this->assertCount(17, $data);
     }
 
-    public function testSearchWithApiCommunicationException(): void
+    public function testSearchByCategory(): void
     {
-        $this->expectException(ApiCommunicationException::class);
+        $client = static::createClient();
 
-        // Mock the BookApiService to throw an ApiCommunicationException
-        $this->bookApiService->expects($this->once())
-            ->method('fetchBooksData')
-            ->willThrowException(new ApiCommunicationException('API communication error'));
+        $client->request('GET', '/book/search', ['category' => 'Java']);
+        $response = $client->getResponse();
 
-        // Mock the parameter bag to return the mocked API URL
-        $this->parameterBag->expects($this->once())
-            ->method('get')
-            ->with('api_url')
-            ->willReturn('mocked_api_url');
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertJson($response->getContent());
 
-        // Mock the request object
-        $request = $this->createMock(Request::class);
+        $data = json_decode($response->getContent(), true);
+        $this->assertIsArray($data);
+        $this->assertCount(29, $data);
+    }
 
-        // Call the search method (which should throw an ApiCommunicationException)
-        $this->bookSearchController->search($request);
+    public function testSearchByDate(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/book/search', ['date' => '2009-04-01']);
+        $response = $client->getResponse();
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertJson($response->getContent());
+
+        $data = json_decode($response->getContent(), true);
+        $this->assertIsArray($data);
+        $this->assertCount(2, $data);
+    }
+
+    public function testSearchByMultipleCriteria(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/book/search', ['date' => '2009-04-01', 'price' => '40']);
+        $response = $client->getResponse();
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertJson($response->getContent());
+
+        $data = json_decode($response->getContent(), true);
+        $this->assertIsArray($data);
+        $this->assertCount(2, $data);
+    }
+
+    public function testSearchWithEmptyResult(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/book/search', ['category' => 'Nonexistent']);
+        $response = $client->getResponse();
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertJson($response->getContent());
+
+        $data = json_decode($response->getContent(), true);
+        $this->assertIsArray($data);
+        $this->assertCount(0, $data);
     }
 }
